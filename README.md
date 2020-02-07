@@ -1,3 +1,5 @@
+[![](https://img.shields.io/pypi/v/foliantcontrib.alt_structure.svg)](https://pypi.org/project/foliantcontrib.alt_structure/)
+
 # AltStructure Extension
 
 AltStructure is a config extension for Foliant to generate alternative chapter structure based on metadata.
