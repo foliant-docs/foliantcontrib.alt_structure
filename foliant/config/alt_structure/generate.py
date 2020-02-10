@@ -58,7 +58,7 @@ def add_chapter(section: Section,
     for i in range(len(nodes)):
         node = nodes[i]
         node_ref = section.data['structure'][node]
-        node_descr = registry[node].get(node_ref) or node_ref
+        node_descr = registry.get(node, {}).get(node_ref) or node_ref
         current_list = setdefault_chapter_section(current_list, node_descr)
     if subfolder:
         current_list = setdefault_chapter_section(current_list, subfolder)
@@ -118,6 +118,7 @@ def gen_chapters(meta: Meta,
     '''
     chapters = []
     unmatched = []
+    root = []
 
     # branch is a single structure template, e.g.: "topic/entity"
     for branch in structure:
@@ -143,18 +144,13 @@ def gen_chapters(meta: Meta,
                 if SUBFOLDER_NODE in structure:
                     subfolder = structure.pop(SUBFOLDER_NODE)
 
-                # add root articles
+                # save root articles
                 if i == 0:
                     if is_root:
-                        add_chapter(section,
-                                    chapters,
-                                    match,
-                                    registry,
-                                    src_dir,
-                                    subfolder,
-                                    subdir_name)
+                        if section not in root:
+                            root.append(section)
                     elif section not in unmatched:
-                            unmatched.append(section)
+                        unmatched.append(section)
 
                 # check if all `match` nodes are in section structure and next
                 # by order node is _not_ in there
@@ -168,13 +164,16 @@ def gen_chapters(meta: Meta,
                                 subdir_name)
                     if section in unmatched:
                         unmatched.pop(unmatched.index(section))
-    if unmatched_to_root:
-        for section in unmatched:
-            add_chapter(section,
-                        chapters,
-                        [],
-                        registry,
-                        src_dir,
-                        subfolder,
-                        subdir_name)
+                    if section in root:
+                        root.pop(root.index(section))
+
+    to_root = [*root, *unmatched] if unmatched_to_root else root
+    for section in to_root:
+        add_chapter(section,
+                    chapters,
+                    [],
+                    registry,
+                    src_dir,
+                    subfolder,
+                    subdir_name)
     return chapters
