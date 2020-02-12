@@ -18,8 +18,6 @@ class Parser(BaseParser):
         super().__init__(*args, **kwargs)
         with open(self.config_path) as config_file:
             self.config = {**self._defaults, **load(config_file, Loader=BaseLoader)}
-        self.parser_config = self._get_config()
-        self.need_subdir = self._get_need_subdir()
 
         add_constructor('!alt_structure', self._resolve_tag)
 
@@ -58,6 +56,10 @@ class Parser(BaseParser):
         chapters and returns new structure based on metadata and alt_structure
         config.
         '''
+
+        self.parser_config = self._get_config()
+        self.need_subdir = self._get_need_subdir()
+
         if self.need_subdir:
             self.logger.debug('Preprocessor alt_structure is stated, tag will be resolved by it')
             return None  # alt_structure will be built by preprocessor
