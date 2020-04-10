@@ -1,7 +1,7 @@
 from setuptools import setup
 
 
-SHORT_DESCRIPTION = 'Extension for Foliant documentation tool to generate'\
+SHORT_DESCRIPTION = 'Extension for Foliant documentation tool which generates'\
                     'alternative chapters structure.'
 
 try:
