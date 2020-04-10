@@ -6,13 +6,12 @@ from foliant.config.base import BaseParser
 from foliant.meta.generate import load_meta
 from foliant.preprocessors.utils.combined_options import Options
 
-from .generate import gen_chapters, set_up_logger
+from .generate import gen_chapters
 
 CONFIG_SECTION = 'alt_structure'
 PREPROCESSOR_NAME = 'alt_structure'
 CONTEXT_FILE_NAME = '.alt_structure.yml'
 PLACEHOLDER = '__alt_structure_{id}'
-DEFAULT_SEP = '/'
 
 
 def save_to_context(chapters):
@@ -34,7 +33,6 @@ class Parser(BaseParser):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.logger = self.logger.getChild('alt_structure')
-        set_up_logger(self.logger)
         with open(self.config_path) as config_file:
             self.config = {**self._defaults, **load(config_file, Loader=BaseLoader)}
 
@@ -46,8 +44,7 @@ class Parser(BaseParser):
             raise RuntimeError('Config for alt_structure is not specified!')
         parser_config = Options(self.config[CONFIG_SECTION],
                                 required=('structure',),
-                                defaults={'sep': DEFAULT_SEP,
-                                          'add_unmatched_to_root': False})
+                                defaults={'add_unmatched_to_root': False})
         self.logger.debug(f'Config for alt_structure: {parser_config}')
         return parser_config
 
@@ -79,7 +76,7 @@ class Parser(BaseParser):
         self.parser_config = self._get_config()
         self.need_subdir = self._get_need_subdir()
 
-        src_dir = Path(self.config['src_dir']).expanduser()
+        src_dir = Path(self.config['src_dir'])
         chapter_list = loader.construct_sequence(node)
 
         # hack for accepting aliases in yaml [*alias]
@@ -95,7 +92,6 @@ class Parser(BaseParser):
             return PLACEHOLDER.format(id=id_)  # alt_structure will be built by preprocessor
 
         structure = self.parser_config['structure']
-        sep = self.parser_config['sep']
         registry = self.parser_config.get('registry', {})
         meta = load_meta(chapter_list, src_dir)
         unmatched_to_root = self.parser_config['add_unmatched_to_root']
@@ -105,8 +101,6 @@ class Parser(BaseParser):
         result = gen_chapters(meta,
                               registry,
                               structure,
-                              sep,
-                              src_dir,
                               unmatched_to_root)
 
         self.logger.debug(f'Generated alt_structure: {result}')

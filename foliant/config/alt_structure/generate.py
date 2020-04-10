@@ -1,11 +1,14 @@
+from __future__ import annotations
+
 import os
-from pathlib import PosixPath, Path
-from foliant.meta.classes import Section, Meta
-from unittest.mock import Mock
+
+from logging import getLogger
+from pathlib import PosixPath
+from foliant.meta.classes import Meta
 
 # is overridden in set_up_logger
 
-logger = Mock()
+logger = getLogger('flt.alt_structure.generate')
 
 STRUCTURE_KEY = 'structure'
 FOLDER_KEY = 'folder'
@@ -34,79 +37,96 @@ def setdefault_chapter_section(chapter_section: list, section_name: str) -> list
         return new_subsection[section_name]
 
 
-def add_chapter(section: Section,
-                chapters: list,
-                nodes: list,
-                registry: dict,
-                src_dir: PosixPath or str,
-                subfolder: str or None,
-                subdir_name: str or None):
-    '''
-    Add a chapter to a list of chapters. The structure is generated from the
-    list of nodes (and subfolder, if present), node names are looked up in the
-    registry. Path to file is taken from meta section, relative to src_dir.
-    If subdir_name specified, it will be added to the beginning of all paths.
+class CategoryTree:
+    def __init__(self,
+                 structure: dict,
+                 unmatched_to_root: bool = False,
+                 registry: dict = {},
+                 subdir_name: str or None = None):
+        self.leaves = []
+        self.structure = structure
+        self.unmatched_to_root = unmatched_to_root
+        self.registry = registry
+        self.subdir_name = subdir_name
+        global logger
+        self.logger = logger
+        self.logger.debug(f'CategoryTree init: {self.__dict__}')
 
-    :param section: main meta section for the chapter which is being added.
-    :param chapters: list of chapters where the chapter will be added.
-    :param nodes: list of nodes from which the chapter structure will be generated.
-    :param registry: dictionary with key = alias, used in meta, value = verbose
-                     title to be used in chapters.
-    :param src_dir: directory relative to which the metadata was generated (to
-                    determine the correct paths to insert into chapters)
-    :param subfolder: lowest category title to be inserted into chapters before
-                      current chapter. If falsy — ignored.
-    :param subdir_name: name of the subdirectory which will be inserted into the
-                        beginning of the chapter path.
-    '''
-    logger.debug(f'Adding chapter {section.chapter.name}')
-    current_list = chapters
-    for i in range(len(nodes)):
-        node = nodes[i]
-        node_ref = section.data['structure'][node]
-        node_descr = registry.get(node, {}).get(node_ref) or node_ref
-        logger.debug(f'Adding node {node} (node_ref: {node_ref}, node_descr: {node_descr})')
-        current_list = setdefault_chapter_section(current_list, node_descr)
-    if subfolder:
-        current_list = setdefault_chapter_section(current_list, subfolder)
-    chapter_name = str(Path(section.filename).relative_to(src_dir))
-    if subdir_name:
-        chapter_name = os.path.join(subdir_name, chapter_name)
-    if chapter_name not in current_list:
-        current_list.append(chapter_name)
+    def add_leaf(self, name: str, nodes: dict):
+        self.logger.debug(f'Adding leaf {name}, nodes: {nodes}')
+
+        nodes = dict(nodes)
+        leaf = Leaf(name=name,
+                    root=bool(nodes.get(ROOT_NODE, False)),
+                    subfolder=nodes.get(SUBFOLDER_NODE))
+        if leaf.is_root:
+            self.logger.debug(f'adding to root {leaf}')
+            self.leaves.append(leaf)
+            return
+
+        cur_level = self.structure
+        while True:
+            if not isinstance(cur_level, dict):
+                # reached end of structure tree
+                break
+            for key, val in nodes.items():
+                if key in cur_level:
+                    leaf.add_category(val)
+                    cur_level = cur_level[key]
+                    break
+            else:
+                # no more matching nodes
+                break
+            nodes.pop(key)
+
+        self.leaves.append(leaf)
+        self.logger.debug(f'adding {leaf}, categories: {leaf.categories}')
+
+    def render(self) -> list:
+        def render_leaf(section: list, leaf: Leaf):
+            if leaf.subfolder:
+                section = setdefault_chapter_section(section, leaf.subfolder)
+            if self.subdir_name:
+                name = os.path.join(self.subdir_name, leaf.name)
+            else:
+                name = leaf.name
+            section.append(name)
+        result = []
+        for leaf in self.leaves:
+            if leaf.is_root:
+                render_leaf(result, leaf)
+            else:
+                if not (leaf.categories or self.unmatched_to_root):
+                    continue
+                current_section = result
+                for category in leaf.categories:
+                    category_name = self.registry.get(category, category)
+                    current_section = setdefault_chapter_section(current_section,
+                                                                 category_name)
+                render_leaf(current_section, leaf)
+        return result
 
 
-def get_node_list(branch: str or list, sep='/'):
-    """
-    Parse branch if it is a string and split it into list of nodes. Check if
-    special names weren't uses in nodes and return the list.
+class Leaf:
+    def __init__(self,
+                 name: str,
+                 root: bool,
+                 subfolder: str or None = None):
+        self.name = name
+        self.subfolder = subfolder
+        self.categories = []
+        self.is_root = root
 
-    :param branch: one structure string to be split or list of strings
-    :param sep: separator, used to split the structure string (ignored for list)
+    def add_category(self, name: str):
+        self.categories.append(name)
 
-    :returns: list of node names
-    """
-    special_nodes = (ROOT_NODE, SUBFOLDER_NODE)
-    if isinstance(branch, str):
-        result = branch.split(sep)
-    elif isinstance(branch, list):
-        result = branch
-    else:
-        RuntimeError('Structure element should be either a string or a list.'
-                     f'You supplied {branch}')
-
-    for node in result:
-        if node in special_nodes:
-            RuntimeError(f"Sorry, {node} is a special name, you can't use it in"
-                         'structure')
-    return result
+    def __repr__(self):
+        return f'Leaf({self.name}, {self.is_root}, {self.subfolder})'
 
 
 def gen_chapters(meta: Meta,
                  registry: dict,
                  structure: list,
-                 sep: str,
-                 src_dir: PosixPath or str,
                  unmatched_to_root: bool,
                  subdir_name: str or None = None
                  ) -> list:
@@ -117,81 +137,16 @@ def gen_chapters(meta: Meta,
     :param meta: Meta object with metadata of the project.
     :param registry: dictionary with definitions of node refs from config.
     :param structure: list of structure strings or structure lists from config.
-    :param sep: separator for structure strings (ignored if structure is a list)
-    :param src_dir: source dir, relative to which paths will be added to chapters
     :param subdir_name: name of the subdir in sr for the new chapter paths
 
     :returns: generated chapters list.
     '''
-    chapters = []
-    unmatched = []
-    root = []
 
     logger.debug(f'Got registry: {registry}')
 
-    # branch is a single structure template, e.g.: "topic/entity"
-    for branch in structure:
-        logger.debug(f'Processing structure branch: {branch}')
-        # node is one level of structure, e.g.: "topic"
-        node_list = get_node_list(branch)
-        logger.debug(f'Branch parsed into nodes: {node_list}')
-        # start with single node, then incrementally add other nodes
-        for i in range(len(node_list) + 1):
-            match = node_list[:i]
-            logger.debug(f'Looking for node combination: {match}')
+    tree = CategoryTree(structure, unmatched_to_root, registry, subdir_name)
 
-            next_node = node_list[i] if i < len(node_list) else None
-            for chapter in meta.chapters:
-                section = chapter.main_section
-
-                # nodes, defined for this chapter
-                structure = dict(section.data.get('structure', {}))
-
-                # special nodes treatment
-                is_root = False
-                if ROOT_NODE in structure:
-                    structure.pop(ROOT_NODE)
-                    is_root = True
-                subfolder = None
-                if SUBFOLDER_NODE in structure:
-                    subfolder = structure.pop(SUBFOLDER_NODE)
-
-                # save root articles
-                if i == 0:
-                    if is_root:
-                        if section not in root:
-                            root.append(section)
-                    elif section not in unmatched:
-                        unmatched.append(section)
-
-                # check if all `match` nodes are in section structure and next
-                # by order node is _not_ in there
-                elif set(match).issubset(structure) and next_node not in structure:
-                    add_chapter(section,
-                                chapters,
-                                match,
-                                registry,
-                                src_dir,
-                                subfolder,
-                                subdir_name)
-                    if section in unmatched:
-                        unmatched.pop(unmatched.index(section))
-                    if section in root:
-                        root.pop(root.index(section))
-
-    to_root = [*root, *unmatched] if unmatched_to_root else root
-    for section in to_root:
-        add_chapter(section,
-                    chapters,
-                    [],
-                    registry,
-                    src_dir,
-                    subfolder,
-                    subdir_name)
-    return chapters
-
-
-def set_up_logger(logger_):
-    '''Set up a global logger for functions in this module'''
-    global logger
-    logger = logger_
+    for chapter in meta.chapters:
+        nodes = chapter.main_section.data.get('structure', {})
+        tree.add_leaf(chapter.name, nodes)
+    return tree.render()

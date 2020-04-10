@@ -5,9 +5,8 @@ from yaml import load, Loader
 
 from foliant.meta.generate import load_meta
 from foliant.preprocessors.base import BasePreprocessor
-from foliant.config.alt_structure.generate import gen_chapters, set_up_logger
+from foliant.config.alt_structure.generate import gen_chapters
 from foliant.config.alt_structure.alt_structure import (CONFIG_SECTION,
-                                                        DEFAULT_SEP,
                                                         PLACEHOLDER,
                                                         CONTEXT_FILE_NAME)
 from foliant.preprocessors.utils.combined_options import Options
@@ -65,12 +64,10 @@ class Preprocessor(BasePreprocessor):
         super().__init__(*args, **kwargs)
 
         self.logger = self.logger.getChild('alt_structure')
-        set_up_logger(self.logger)
         self.logger.debug(f'Preprocessor inited: {self.__dict__}')
         self.parser_config = Options(self.config[CONFIG_SECTION],
                                      required=('structure',),
-                                     defaults={'sep': DEFAULT_SEP,
-                                               'add_unmatched_to_root': False})
+                                     defaults={'add_unmatched_to_root': False})
         self.tag_count = 0
 
     def _gen_subdir(self, count: int) -> str:
@@ -102,7 +99,6 @@ class Preprocessor(BasePreprocessor):
         self.logger.debug(f'Got list  of chapters from context: {chapter_list}')
 
         structure = self.parser_config['structure']
-        sep = self.parser_config['sep']
         registry = self.parser_config.get('registry', {})
         meta = load_meta(chapter_list, self.working_dir)
         unmatched_to_root = self.parser_config['add_unmatched_to_root']
@@ -118,8 +114,6 @@ class Preprocessor(BasePreprocessor):
         result = gen_chapters(meta,
                               registry,
                               structure,
-                              sep,
-                              self.working_dir,
                               unmatched_to_root,
                               subdir)
 
