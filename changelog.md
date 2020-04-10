@@ -1,6 +1,8 @@
 # 0.2.0
 
--   Preprocessor now doesn't read config file, which previously caused MultiProject to work second time.
+-   Preprocessor now doesn't read config file, which previously caused MultiProject to run second time.
+-   Registry is now flat dictionary.
+-   Structure is now supplied via dictionary.
 
 # 0.1.2
 

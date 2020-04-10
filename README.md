@@ -21,24 +21,19 @@ Options for AltStructure are specified in the `alt_structure` section at the roo
 ```yaml
 alt_structure:
     structure:
-        - "topic/entity"
-        - "additional"
-    sep: '/'
+        topic:
+            entity:
+        additional:
     add_unmatched_to_root: false
     registry:
-        topic:
-            auth: Аутентификация и авторизация
-            weather: Погода
-        entity:
-            test_case: Тест кейсы
-            spec: Спецификации
+        auth: Аутентификация и авторизация
+        weather: Погода
+        test_case: Тест кейсы
+        spec: Спецификации
 ```
 
 `structure`
-:   *(required)* List of structure strings (or lists), each of them representing a branch in chapters structure.
-
-`sep`
-:   separator for structure strings (ignored for structure lists). Deafault: `/`
+:   *(required)* A mapping tree, representing alternative structure.
 
 `add_unmatched_to_root`
 :   if `true`, all chapters that weren't matched to structure in metadata will be added to root of the chapter tree. If `false` — they will be ignored. Default: `false`
@@ -107,20 +102,22 @@ chapters:
 
 **Step 2**
 
-Next you need to define the structure in `structure` parameter of extension config. It is defined by list of *node types*, or a single string with node types, divided by separators. For example:
+Next you need to define the structure in `structure` parameter of extension config. It is defined by a mapping tree of *node types*. For example:
 
 ```yaml
 alt_structure:
     structure:
-        - ['topic', 'entity']  # list with two node types
-        - 'additional/glossaries'  # single string with two node types and separator /
+        topic:  # topic is the upmost node type
+            entity:  # nodes with type "entity" will be nested in "topic"
+        additional:
+            glossaries:
 ```
 
 These names of the node types are arbitrary, you can use any words you like except `root` and `subfolder`.
 
 **Step 3**
 
-Open your source md-files and edit their *main meta sections*. Main meta section is a section, defined before the first heading in the document (check [metadata documentation](https://foliant-docs.github.io/docs/cli/meta/) for details). Add a mapping with nodes for this chapter under the key `structure`.
+Open your source md-files and edit their *main meta sections*. Main meta section is a section, defined before the first heading in the document (check [metadata documentation](https://foliant-docs.github.io/docs/meta/) for more info). Add a mapping with nodes for this chapter under the key `structure`.
 
 file auth_spec.md
 ```yaml
@@ -160,10 +157,8 @@ alt_structure:
         - ['topic', 'entity']
         - 'additional/glossaries'
     registry:
-        topic:
-            auth: Authentication and Authorization
-        entity:
-            spec: Specifications
+        auth: Authentication and Authorization
+        spec: Specifications
 ```
 
 With such registry now our new structure will look like this:
@@ -185,8 +180,10 @@ For example, if our structure looks like this:
 ```yaml
 alt_structure:
     structure:
-        - ['topic', 'entity']
+        topic:
+            entity:
 ```
+
 and our chapter's metadata looks like this:
 
 ```yaml
@@ -205,18 +202,6 @@ To do that — add the `root` node to your metadata:
 structure:
     foo: bar
     root: true  # the value of the key `root` is ignored, we use `true` for clarity
----
-```
-
-Please note that if you add `root: true` to meta, the chapter will be sent to root of your tree *only* if it wasn't matched by your structure definition.
-
-So in the following example it will still appear under node `auth` and `root: true` will be ignored:
-
-```yaml
----
-structure:
-    topic: auth
-    root: true  # ignored
 ---
 ```
 
