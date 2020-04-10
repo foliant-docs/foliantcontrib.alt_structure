@@ -1,21 +1,40 @@
+import os
 from pathlib import Path
-from yaml import add_constructor, load, BaseLoader
+from yaml import add_constructor, load, dump, BaseLoader, Loader
 
 from foliant.config.base import BaseParser
 from foliant.meta.generate import load_meta
 from foliant.preprocessors.utils.combined_options import Options
 
-from .generate import gen_chapters
+from .generate import gen_chapters, set_up_logger
 
 CONFIG_SECTION = 'alt_structure'
 PREPROCESSOR_NAME = 'alt_structure'
-CONTEXT_FILE_NAME = '.alt_structure.yml'  # in __folianttmp__
+CONTEXT_FILE_NAME = '.alt_structure.yml'
+PLACEHOLDER = '__alt_structure_{id}'
 DEFAULT_SEP = '/'
+
+
+def save_to_context(chapters):
+    if os.path.exists(CONTEXT_FILE_NAME):
+        with open(CONTEXT_FILE_NAME, encoding='utf8') as f:
+            context = load(f, Loader)
+    else:
+        context = {}
+    i = 1
+    while i in context:
+        i += 1
+    context[i] = chapters
+    with open(CONTEXT_FILE_NAME, 'w') as f:
+        f.write(dump(context))
+    return i
 
 
 class Parser(BaseParser):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.logger = self.logger.getChild('alt_structure')
+        set_up_logger(self.logger)
         with open(self.config_path) as config_file:
             self.config = {**self._defaults, **load(config_file, Loader=BaseLoader)}
 
@@ -60,21 +79,25 @@ class Parser(BaseParser):
         self.parser_config = self._get_config()
         self.need_subdir = self._get_need_subdir()
 
-        if self.need_subdir:
-            self.logger.debug('Preprocessor alt_structure is stated, tag will be resolved by it')
-            return None  # alt_structure will be built by preprocessor
-
         src_dir = Path(self.config['src_dir']).expanduser()
-        chapters = loader.construct_sequence(node)
+        chapter_list = loader.construct_sequence(node)
 
         # hack for accepting aliases in yaml [*alias]
-        if len(chapters) == 1 and isinstance(chapters[0], list):
-            chapters = loader.construct_sequence(node.value[0])
+        if len(chapter_list) == 1 and isinstance(chapter_list[0], list):
+            chapter_list = loader.construct_sequence(node.value[0], deep=True)
+
+        self.logger.debug(f'Got list  of chapters: {chapter_list}')
+
+        if self.need_subdir:
+            id_ = save_to_context(chapter_list)
+            self.logger.debug('Preprocessor alt_structure is stated, tag will be resolved by it.'
+                              f' Saving chapters list to context under id {id_}.')
+            return PLACEHOLDER.format(id=id_)  # alt_structure will be built by preprocessor
 
         structure = self.parser_config['structure']
         sep = self.parser_config['sep']
         registry = self.parser_config.get('registry', {})
-        meta = load_meta(chapters, src_dir)
+        meta = load_meta(chapter_list, src_dir)
         unmatched_to_root = self.parser_config['add_unmatched_to_root']
 
         self.logger.debug(f'Resolving !alt_structure tag')

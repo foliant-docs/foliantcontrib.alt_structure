@@ -1,6 +1,11 @@
 import os
 from pathlib import PosixPath, Path
 from foliant.meta.classes import Section, Meta
+from unittest.mock import Mock
+
+# is overridden in set_up_logger
+
+logger = Mock()
 
 STRUCTURE_KEY = 'structure'
 FOLDER_KEY = 'folder'
@@ -54,11 +59,13 @@ def add_chapter(section: Section,
     :param subdir_name: name of the subdirectory which will be inserted into the
                         beginning of the chapter path.
     '''
+    logger.debug(f'Adding chapter {section.chapter.name}')
     current_list = chapters
     for i in range(len(nodes)):
         node = nodes[i]
         node_ref = section.data['structure'][node]
         node_descr = registry.get(node, {}).get(node_ref) or node_ref
+        logger.debug(f'Adding node {node} (node_ref: {node_ref}, node_descr: {node_descr})')
         current_list = setdefault_chapter_section(current_list, node_descr)
     if subfolder:
         current_list = setdefault_chapter_section(current_list, subfolder)
@@ -120,13 +127,18 @@ def gen_chapters(meta: Meta,
     unmatched = []
     root = []
 
+    logger.debug(f'Got registry: {registry}')
+
     # branch is a single structure template, e.g.: "topic/entity"
     for branch in structure:
+        logger.debug(f'Processing structure branch: {branch}')
         # node is one level of structure, e.g.: "topic"
         node_list = get_node_list(branch)
+        logger.debug(f'Branch parsed into nodes: {node_list}')
         # start with single node, then incrementally add other nodes
         for i in range(len(node_list) + 1):
             match = node_list[:i]
+            logger.debug(f'Looking for node combination: {match}')
 
             next_node = node_list[i] if i < len(node_list) else None
             for chapter in meta.chapters:
@@ -177,3 +189,9 @@ def gen_chapters(meta: Meta,
                     subfolder,
                     subdir_name)
     return chapters
+
+
+def set_up_logger(logger_):
+    '''Set up a global logger for functions in this module'''
+    global logger
+    logger = logger_

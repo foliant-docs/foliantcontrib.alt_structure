@@ -87,7 +87,7 @@ chapters:
         - test_weather.md
 ```
 
-> AltStructure extension introduces a lot of new notions so to make sure we are on the same page, let's agree on some terms. _Chapter tree category_ is a mapping with single key which you add to your chapter list to create hierarchy. `basic:` and `Alternative:` are categories in this example.
+> AltStructure extension introduces a lot of new notions, so let's agree on some terms to make sure we are on the same page. _Chapter tree category_ is a mapping with single key which you add to your chapter list to create hierarchy. `basic:` and `Alternative:` are categories in this example.
 
 You can also utilize YAML anchors and aliases, but in this case, because of language limitation you need to supply alias inside a list. Let's use it to get the same result as the above, but in a more compact way:
 

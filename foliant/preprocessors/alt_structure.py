@@ -1,12 +1,59 @@
+import os
 from shutil import copytree
 
-from yaml import load, add_constructor, Loader
+from yaml import load, Loader
 
 from foliant.meta.generate import load_meta
 from foliant.preprocessors.base import BasePreprocessor
-from foliant.config.alt_structure.generate import gen_chapters
-from foliant.config.alt_structure.alt_structure import CONFIG_SECTION, DEFAULT_SEP
+from foliant.config.alt_structure.generate import gen_chapters, set_up_logger
+from foliant.config.alt_structure.alt_structure import (CONFIG_SECTION,
+                                                        DEFAULT_SEP,
+                                                        PLACEHOLDER,
+                                                        CONTEXT_FILE_NAME)
 from foliant.preprocessors.utils.combined_options import Options
+
+
+def load_chapters_from_context(id_: int) -> list:
+    '''
+    Load chapters list from context file and return them.
+
+    :param id_: key for the chapter list in context.
+
+    :returns: chapter list from context file
+    '''
+
+    if not os.path.exists(CONTEXT_FILE_NAME):
+        return []
+    with open(CONTEXT_FILE_NAME, encoding='utf8') as f:
+        context = load(f, Loader)
+    return context.get(id_, [])
+
+
+def walk_chapters(val: list or dict or str, func):
+    '''
+    Walk chapter tree in search of alt_structure placeholders. On place of each
+    placeholder put the result of func. func should accept one parameter —
+    the placeholder value.
+
+    Recursive, in place.
+
+    :param val: chapters list to process
+    :param func: function which will be applied to placeholders
+    '''
+
+    if isinstance(val, str):
+        if val.startswith(PLACEHOLDER.format(id='')):
+            return func(val)
+        else:
+            return val
+    elif isinstance(val, list):
+        for i in range(len(val)):
+            val[i] = walk_chapters(val[i], func)
+        return val
+    elif isinstance(val, dict):
+        for key in val.keys():
+            val[key] = walk_chapters(val[key], func)
+        return val
 
 
 class Preprocessor(BasePreprocessor):
@@ -18,15 +65,13 @@ class Preprocessor(BasePreprocessor):
         super().__init__(*args, **kwargs)
 
         self.logger = self.logger.getChild('alt_structure')
+        set_up_logger(self.logger)
         self.logger.debug(f'Preprocessor inited: {self.__dict__}')
         self.parser_config = Options(self.config[CONFIG_SECTION],
                                      required=('structure',),
                                      defaults={'sep': DEFAULT_SEP,
                                                'add_unmatched_to_root': False})
         self.tag_count = 0
-
-        # redefining alt_structure tag constructor
-        add_constructor('!alt_structure', self._resolve_tag)
 
     def _gen_subdir(self, count: int) -> str:
         '''
@@ -42,22 +87,24 @@ class Preprocessor(BasePreprocessor):
         copytree(self.working_dir, self.working_dir / subdir_name)
         return subdir_name
 
-    def _resolve_tag(self, loader, node) -> str:
+    def _process_tag(self, placeholder: str) -> list:
         '''
-        Resolve !alt_structure tag in foliant config. The tag accepts list of
-        chapters and returns new structure based on metadata and alt_structure
-        config.
-        '''
-        chapters = loader.construct_sequence(node)
+        Resolve alt_structure placeholder in foliant config.
 
-        # hack for accepting aliases in yaml [*alias]
-        if len(chapters) == 1 and isinstance(chapters[0], list):
-            chapters = loader.construct_sequence(node.value[0])
+        :param placeholder: placeholder from the chapters list.
+
+        :returns: alternative structure list.
+        '''
+
+        id_ = int(placeholder[len(PLACEHOLDER.format(id=''))])
+        chapter_list = load_chapters_from_context(id_)
+
+        self.logger.debug(f'Got list  of chapters from context: {chapter_list}')
 
         structure = self.parser_config['structure']
         sep = self.parser_config['sep']
         registry = self.parser_config.get('registry', {})
-        meta = load_meta(chapters, self.working_dir)
+        meta = load_meta(chapter_list, self.working_dir)
         unmatched_to_root = self.parser_config['add_unmatched_to_root']
 
         self.logger.debug(f'Resolving !alt_structure tag again')
@@ -87,9 +134,10 @@ class Preprocessor(BasePreprocessor):
             self.logger.debug('`create_subfolders` is False, nothing to do')
             return
 
-        config_file_name = self.context.get('config_file_name', 'foliant.yml')
-        with open(config_file_name) as c:
-            new_config = load(c, Loader)
-        self.context['config']['chapters'] = new_config['chapters']
+        walk_chapters(self.context['config'].get('chapters', []), self._process_tag)
+
+        self.logger.debug(
+            f"chapters after preprocessor:\n\n{self.context['config'].get('chapters', [])}"
+        )
 
         self.logger.debug('Preprocessor applied')
