@@ -1,4 +1,4 @@
-[![](https://img.shields.io/pypi/v/foliantcontrib.alt_structure.svg)](https://pypi.org/project/foliantcontrib.alt_structure/)
+[![](https://img.shields.io/pypi/v/foliantcontrib.alt_structure.svg)](https://pypi.org/project/foliantcontrib.alt_structure/) [![](https://img.shields.io/github/v/tag/foliant-docs/foliantcontrib.alt_structure.svg?label=GitHub)](https://github.com/foliant-docs/foliantcontrib.alt_structure)
 
 # AltStructure Extension
 
