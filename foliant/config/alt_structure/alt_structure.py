@@ -1,10 +1,15 @@
 import os
+
 from pathlib import Path
-from yaml import add_constructor, load, dump, BaseLoader, Loader
+from yaml import BaseLoader
+from yaml import Loader
+from yaml import add_constructor
+from yaml import dump
+from yaml import load
 
 from foliant.config.base import BaseParser
+from foliant.contrib.combined_options import Options
 from foliant.meta.generate import load_meta
-from foliant.preprocessors.utils.combined_options import Options
 
 from .generate import gen_chapters
 

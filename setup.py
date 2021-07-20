@@ -17,7 +17,7 @@ setup(
     description=SHORT_DESCRIPTION,
     long_description=LONG_DESCRIPTION,
     long_description_content_type='text/markdown',
-    version='0.2.0',
+    version='0.2.1',
     author='Daniil Minukhin',
     author_email='ddddsa@gmail.com',
     url='https://github.com/foliant-docs/foliantcontrib.alt_structure',
@@ -27,7 +27,7 @@ setup(
     install_requires=[
         'foliant>=1.0.4',
         'foliantcontrib.meta>=1.3',
-        'foliantcontrib.utils.combined-options>=1.0.9',
+        'foliantcontrib.utils>=1.0.2',
     ],
     classifiers=[
         "Development Status :: 5 - Production/Stable",

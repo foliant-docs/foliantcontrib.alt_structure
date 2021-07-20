@@ -1,3 +1,7 @@
+# 0.2.1
+
+-   New utils module.
+
 # 0.2.0
 
 -   Preprocessor now doesn't read config file, which previously caused MultiProject to run second time.

@@ -9,7 +9,7 @@ from foliant.config.alt_structure.generate import gen_chapters
 from foliant.config.alt_structure.alt_structure import (CONFIG_SECTION,
                                                         PLACEHOLDER,
                                                         CONTEXT_FILE_NAME)
-from foliant.preprocessors.utils.combined_options import Options
+from foliant.contrib.combined_options import Options
 
 
 def load_chapters_from_context(id_: int) -> list:

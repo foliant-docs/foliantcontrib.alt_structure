@@ -2,9 +2,8 @@ from __future__ import annotations
 
 import os
 
-from logging import getLogger
-from pathlib import PosixPath
 from foliant.meta.classes import Meta
+from logging import getLogger
 
 # is overridden in set_up_logger
 
